@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	// _ "github.com/mattn/go-sqlite3"
@@ -44,17 +45,41 @@ func main() {
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 
-	router.GET("/day/*date", func(c *gin.Context) {
-		t, err := time.Parse("2006-Jan-02", c.Param("date"))
+	router.GET("/day/:date", func(c *gin.Context) {
+		t, err := time.Parse("2006-01-02", c.Param("date"))
 		if err != nil {
-			t = time.Now()
+			panic(err)
 		}
+
+		rs := GrepRecordsByDate(&records, t)
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
 			"time":    t.String(),
-			"records": records,
+			"records": rs,
+			"total":   totalAmount(&rs),
 		})
 	})
 
 	router.Run()
+}
+
+func totalAmount(records *[]record) string {
+	total := float64(0)
+	for _, r := range *records {
+		m, _ := strconv.ParseFloat(r.Amount, 64)
+		total += m
+	}
+	return fmt.Sprint(total)
+}
+
+func GrepRecordsByDate(records *[]record, date time.Time) []record {
+	result := []record{}
+	for _, r := range *records {
+		if r.Time.Year() == date.Year() && r.Time.Month() == date.Month() &&
+			r.Time.Day() == date.Day() {
+			result = append(result, r)
+		}
+	}
+
+	return result
 }
