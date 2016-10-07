@@ -63,13 +63,13 @@ func main() {
 	router.Run()
 }
 
-func totalAmount(records *[]record) string {
+func totalAmount(records *[]record) float64 {
 	total := float64(0)
 	for _, r := range *records {
 		m, _ := strconv.ParseFloat(r.Amount, 64)
 		total += m
 	}
-	return fmt.Sprint(total)
+	return total
 }
 
 func GrepRecordsByDate(records *[]record, date time.Time) []record {
