@@ -4,7 +4,6 @@ import (
 	"bufio"
 	// "database/sql"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -35,12 +34,12 @@ func main() {
 	for scanner.Scan() {
 		read += scanner.Text()
 	}
+
 	var records []record
 	err = json.Unmarshal([]byte(read), &records)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("%+v \n", records)
 
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
@@ -51,16 +50,41 @@ func main() {
 			panic(err)
 		}
 
-		rs := GrepRecordsByDate(&records, t)
+		rs := grepRecordsByDate(&records, t)
+		rsByKind := sortByKind(&rs)
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
-			"time":    t.String(),
-			"records": rs,
-			"total":   totalAmount(&rs),
+			"time":        t.String(),
+			"dayRecord":   rs,
+			"byKind":      *rsByKind,
+			"totalAmount": totalAmount(&rs),
+			"kindAmount":  totalAmountByKind(rsByKind),
 		})
 	})
 
 	router.Run()
+}
+
+func grepRecordsByDate(records *[]record, date time.Time) []record {
+	result := []record{}
+	for _, r := range *records {
+		if r.Time.Year() == date.Year() && r.Time.Month() == date.Month() &&
+			r.Time.Day() == date.Day() {
+			result = append(result, r)
+		}
+	}
+
+	return result
+}
+
+func sortByKind(records *[]record) *map[string][]record {
+	result := make(map[string][]record)
+
+	for _, r := range *records {
+		result[r.Kind] = append(result[r.Kind], r)
+	}
+
+	return &result
 }
 
 func totalAmount(records *[]record) float64 {
@@ -72,14 +96,10 @@ func totalAmount(records *[]record) float64 {
 	return total
 }
 
-func GrepRecordsByDate(records *[]record, date time.Time) []record {
-	result := []record{}
-	for _, r := range *records {
-		if r.Time.Year() == date.Year() && r.Time.Month() == date.Month() &&
-			r.Time.Day() == date.Day() {
-			result = append(result, r)
-		}
+func totalAmountByKind(records *map[string][]record) map[string]float64 {
+	result := make(map[string]float64)
+	for k, rs := range *records {
+		result[k] = totalAmount(&rs)
 	}
-
 	return result
 }
