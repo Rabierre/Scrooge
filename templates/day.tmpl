@@ -1,0 +1,18 @@
+<p>Total Amount: {{ .totalAmount }}</p>
+
+{{ range .dayRecord }}
+<div>
+    <span>{{ .Time }}</span>
+    <span>{{ .Amount }}</span>
+    <span>{{ .Kind }}</span>
+</div>
+<br/>
+{{ end }}
+
+{{ $kindAmount := .kindAmount}}
+{{ range $kind, $value := .byKind }}
+<div>
+    <p>{{ $kind }}</p>
+    <span>{{ index $kindAmount $kind }}</span>
+</div>
+{{ end }}
