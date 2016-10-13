@@ -19,33 +19,40 @@ type Record struct {
 	Kind   string
 }
 
+var file *os.File
+
 func main() {
-	// sql.Open("sqlite3", "")
 	f, err := os.OpenFile("records.json", os.O_RDWR, os.ModePerm)
-	defer f.Close()
-
 	if err != nil {
 		panic(err)
 	}
+	file = f
+	defer file.Close()
 
-	scanner := bufio.NewScanner(f)
-	read := "" // TODO more grace
+	r := NewEngine()
+	r.Run()
+}
 
-	for scanner.Scan() {
-		read += scanner.Text()
-	}
-
-	var records []Record
-	err = json.Unmarshal([]byte(read), &records)
-	if err != nil {
-		panic(err)
-	}
+func NewEngine() *gin.Engine {
+	// sql.Open("sqlite3", "")
 
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 
 	router.GET("/day/:date", func(c *gin.Context) {
 		t, err := time.Parse("2006-01-02", c.Param("date"))
+		if err != nil {
+			panic(err)
+		}
+
+		scanner := bufio.NewScanner(file)
+		read := "" // TODO more grace
+		for scanner.Scan() {
+			read += scanner.Text()
+		}
+
+		var records []Record
+		err = json.Unmarshal([]byte(read), &records)
 		if err != nil {
 			panic(err)
 		}
@@ -85,19 +92,18 @@ func main() {
 			panic(err)
 		}
 
-		fInfo, err := f.Stat()
+		fileInfo, err := file.Stat()
 		if err != nil {
 			panic(err)
 		}
-		println(fInfo.Size())
 		toJson = append([]byte(",\n\t"), toJson...)
 		toJson = append(toJson, []byte("\n]")...)
-		f.WriteAt(toJson, fInfo.Size()-2)
+		file.WriteAt(toJson, fileInfo.Size()-2)
 
 		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
 	})
 
-	router.Run()
+	return router
 }
 
 func grepRecordsByDate(records *[]Record, date time.Time) []Record {
