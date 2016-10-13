@@ -7,4 +7,6 @@ go:
 install:
 - go get -v -t github.com/rabierre/scrooge
 
-script: go test ./...
+script:
+- echo [{"Time":"2016-10-13T00:00:00Z","Amount":"7400","Kind":"Food"}] > records.json
+- go test ./...
