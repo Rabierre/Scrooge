@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type record struct {
+type Record struct {
 	Time   time.Time
 	Amount string
 	Kind   string
@@ -21,7 +21,7 @@ type record struct {
 
 func main() {
 	// sql.Open("sqlite3", "")
-	f, err := os.Open("records.json")
+	f, err := os.OpenFile("records.json", os.O_RDWR, os.ModePerm)
 	defer f.Close()
 
 	if err != nil {
@@ -35,7 +35,7 @@ func main() {
 		read += scanner.Text()
 	}
 
-	var records []record
+	var records []Record
 	err = json.Unmarshal([]byte(read), &records)
 	if err != nil {
 		panic(err)
@@ -62,11 +62,46 @@ func main() {
 		})
 	})
 
+	router.GET("/insert", func(c *gin.Context) {
+		c.HTML(http.StatusOK, "insert.tmpl", gin.H{})
+	})
+
+	router.POST("/insert", func(c *gin.Context) {
+		amount := c.PostForm("amount")
+		kind := c.PostForm("kind")
+		date, err := time.Parse("2006-01-02", c.PostForm("date"))
+		if err != nil || kind == "" || amount == "" {
+			c.HTML(http.StatusForbidden, "insert.tmpl", gin.H{
+				"amount": amount,
+				"kind":   kind,
+				"date":   c.PostForm("date"),
+			})
+			return
+		}
+
+		record := Record{date, amount, kind}
+		toJson, err := json.Marshal(record)
+		if err != nil {
+			panic(err)
+		}
+
+		fInfo, err := f.Stat()
+		if err != nil {
+			panic(err)
+		}
+		println(fInfo.Size())
+		toJson = append([]byte(",\n\t"), toJson...)
+		toJson = append(toJson, []byte("\n]")...)
+		f.WriteAt(toJson, fInfo.Size()-2)
+
+		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
+	})
+
 	router.Run()
 }
 
-func grepRecordsByDate(records *[]record, date time.Time) []record {
-	result := []record{}
+func grepRecordsByDate(records *[]Record, date time.Time) []Record {
+	result := []Record{}
 	for _, r := range *records {
 		if r.Time.Year() == date.Year() && r.Time.Month() == date.Month() &&
 			r.Time.Day() == date.Day() {
@@ -77,8 +112,8 @@ func grepRecordsByDate(records *[]record, date time.Time) []record {
 	return result
 }
 
-func sortByKind(records *[]record) *map[string][]record {
-	result := make(map[string][]record)
+func sortByKind(records *[]Record) *map[string][]Record {
+	result := make(map[string][]Record)
 
 	for _, r := range *records {
 		result[r.Kind] = append(result[r.Kind], r)
@@ -87,7 +122,7 @@ func sortByKind(records *[]record) *map[string][]record {
 	return &result
 }
 
-func totalAmount(records *[]record) float64 {
+func totalAmount(records *[]Record) float64 {
 	total := float64(0)
 	for _, r := range *records {
 		m, _ := strconv.ParseFloat(r.Amount, 64)
@@ -96,7 +131,7 @@ func totalAmount(records *[]record) float64 {
 	return total
 }
 
-func totalAmountByKind(records *map[string][]record) map[string]float64 {
+func totalAmountByKind(records *map[string][]Record) map[string]float64 {
 	result := make(map[string]float64)
 	for k, rs := range *records {
 		result[k] = totalAmount(&rs)

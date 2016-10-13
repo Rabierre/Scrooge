@@ -1,0 +1,11 @@
+<p>Insert your spend record</p>
+
+<form action="/insert" method="POST">
+    <span>Amount</span>
+    <input type="text" name="amount" value="{{.amount}}" autofocus="" />
+    <span >kind</span>
+    <input type="text" name="kind" value="{{.kind}}"/>
+    <span>Day</span>
+    <input type="date" name="date" value="{{.date}}"/>
+    <input type="submit" value="Save"/>
+</form>
