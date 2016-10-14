@@ -1,14 +1,16 @@
 <p>Total Amount: {{ .totalAmount }}</p>
 
+<p>Spend records of day</p>
 {{ range .dayRecord }}
 <div>
-    <span>{{ .Time }}</span>
+    <span>{{ .Time.Hour }}</span>
     <span>{{ .Amount }}</span>
     <span>{{ .Kind }}</span>
 </div>
 <br/>
 {{ end }}
 
+<p>Spend record by Type</p>
 {{ $kindAmount := .kindAmount}}
 {{ range $kind, $value := .byKind }}
 <div>
