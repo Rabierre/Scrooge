@@ -1,49 +1,53 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
+	"github.com/rabierre/scrooge/models"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGrepRecordsByDate(t *testing.T) {
+func setup() {
+	err := error(nil)
+	db, err = sql.Open("sqlite3", "testdb")
+	if err != nil {
+		panic(err)
+	}
+	InitDB()
+}
+
+func setdown() {
+	db.Close()
+}
+
+func dummyRecords() *[]models.Record {
 	date1, _ := time.Parse("2006-01-02", "2016-10-07")
 	date2, _ := time.Parse("2006-01-02", "2016-10-08")
-	records := []Record{
-		{date1, "1000.0", "Food"},
-		{date2, "1000.0", "Food"},
+	return &[]models.Record{
+		{1, date1, "1000.0", "Food"},
+		{2, date2, "1000.0", "Study"},
 	}
-	result := grepRecordsByDate(&records, date1)
-	assert.Equal(t, len(result), 1)
 }
 
 func TestTotalAmount(t *testing.T) {
-	date1, _ := time.Parse("2006-01-02", "2016-10-07")
-	date2, _ := time.Parse("2006-01-02", "2016-10-08")
-	records := []Record{
-		{date1, "1000.0", "Food"},
-		{date2, "1000.0", "Food"},
-	}
-
-	result := totalAmount(&records)
+	records := dummyRecords()
+	result := totalAmount(records)
 	assert.Equal(t, result, 2000.0)
 }
 
 func TestSortByKind(t *testing.T) {
-	date1, _ := time.Parse("2006-01-02", "2016-10-07")
-	date2, _ := time.Parse("2006-01-02", "2016-10-08")
-	records := []Record{
-		{date1, "1000.0", "Food"},
-		{date2, "1000.0", "Study"},
+	result := sortByKind(&[]models.Record{})
+	for _, vv := range *result {
+		assert.Equal(t, len(vv), 0)
 	}
 
-	result := sortByKind(&records)
+	records := dummyRecords()
+	result = sortByKind(records)
 	for _, vv := range *result {
-		// assert.Equal(t, k, "")
 		assert.Equal(t, len(vv), 1)
 	}
 }
@@ -76,16 +80,4 @@ func TestAllRoutesExist(t *testing.T) {
 		w := PerformRequest(r, rt.method, rt.location)
 		assert.NotEqual(t, rt.expectStatusCode, w.Code)
 	}
-}
-
-func setup() {
-	f, err := os.OpenFile("records.json", os.O_RDWR, os.ModePerm)
-	if err != nil {
-		panic(err)
-	}
-	file = f
-}
-
-func setdown() {
-	file.Close()
 }

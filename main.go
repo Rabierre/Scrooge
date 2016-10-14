@@ -1,41 +1,47 @@
 package main
 
 import (
-	"bufio"
-	// "database/sql"
-	"encoding/json"
+	"database/sql"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	// _ "github.com/mattn/go-sqlite3"
 	"github.com/gin-gonic/gin"
+	"github.com/go-gorp/gorp"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/rabierre/scrooge/models"
 )
 
-type Record struct {
-	Time   time.Time
-	Amount string
-	Kind   string
-}
-
-var file *os.File
+var (
+	db  *sql.DB
+	dbm *gorp.DbMap
+)
 
 func main() {
-	f, err := os.OpenFile("records.json", os.O_RDWR, os.ModePerm)
+	err := error(nil)
+	db, err = sql.Open("sqlite3", "database")
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	file = f
-	defer file.Close()
+	defer db.Close()
+
+	InitDB()
+
+	rs, err := db.Query("select * from Record;")
+	for rs.Next() {
+		r := models.Record{}
+		rs.Scan(r)
+		fmt.Println(r)
+	}
 
 	r := NewEngine()
 	r.Run()
 }
 
 func NewEngine() *gin.Engine {
-	// sql.Open("sqlite3", "")
-
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 
@@ -45,26 +51,19 @@ func NewEngine() *gin.Engine {
 			panic(err)
 		}
 
-		scanner := bufio.NewScanner(file)
-		read := "" // TODO more grace
-		for scanner.Scan() {
-			read += scanner.Text()
-		}
-
-		var records []Record
-		err = json.Unmarshal([]byte(read), &records)
+		records := &[]models.Record{}
+		_, err = dbm.Select(records, "select * from Record where Time = ?", t)
 		if err != nil {
 			panic(err)
 		}
 
-		rs := grepRecordsByDate(&records, t)
-		rsByKind := sortByKind(&rs)
+		rsByKind := sortByKind(records)
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
 			"time":        t.String(),
-			"dayRecord":   rs,
-			"byKind":      *rsByKind,
-			"totalAmount": totalAmount(&rs),
+			"dayRecord":   records,
+			"byKind":      rsByKind,
+			"totalAmount": totalAmount(records),
 			"kindAmount":  totalAmountByKind(rsByKind),
 		})
 	})
@@ -86,19 +85,7 @@ func NewEngine() *gin.Engine {
 			return
 		}
 
-		record := Record{date, amount, kind}
-		toJson, err := json.Marshal(record)
-		if err != nil {
-			panic(err)
-		}
-
-		fileInfo, err := file.Stat()
-		if err != nil {
-			panic(err)
-		}
-		toJson = append([]byte(",\n\t"), toJson...)
-		toJson = append(toJson, []byte("\n]")...)
-		file.WriteAt(toJson, fileInfo.Size()-2)
+		dbm.Insert(&models.Record{0, date, amount, kind})
 
 		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
 	})
@@ -106,20 +93,24 @@ func NewEngine() *gin.Engine {
 	return router
 }
 
-func grepRecordsByDate(records *[]Record, date time.Time) []Record {
-	result := []Record{}
-	for _, r := range *records {
-		if r.Time.Year() == date.Year() && r.Time.Month() == date.Month() &&
-			r.Time.Day() == date.Day() {
-			result = append(result, r)
-		}
+func totalAmount(records *[]models.Record) float64 {
+	total := float64(0)
+	if records == nil {
+		return total
 	}
 
-	return result
+	for _, r := range *records {
+		m, _ := strconv.ParseFloat(r.Amount, 64)
+		total += m
+	}
+	return total
 }
 
-func sortByKind(records *[]Record) *map[string][]Record {
-	result := make(map[string][]Record)
+func sortByKind(records *[]models.Record) *map[string][]models.Record {
+	result := make(map[string][]models.Record)
+	if records == nil {
+		return &result
+	}
 
 	for _, r := range *records {
 		result[r.Kind] = append(result[r.Kind], r)
@@ -128,19 +119,37 @@ func sortByKind(records *[]Record) *map[string][]Record {
 	return &result
 }
 
-func totalAmount(records *[]Record) float64 {
-	total := float64(0)
-	for _, r := range *records {
-		m, _ := strconv.ParseFloat(r.Amount, 64)
-		total += m
-	}
-	return total
-}
-
-func totalAmountByKind(records *map[string][]Record) map[string]float64 {
+func totalAmountByKind(records *map[string][]models.Record) *map[string]float64 {
 	result := make(map[string]float64)
+	if records == nil {
+		return &result
+	}
+
 	for k, rs := range *records {
 		result[k] = totalAmount(&rs)
 	}
-	return result
+	return &result
+}
+
+func InitDB() {
+	dbm = &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+
+	setColumnSizes := func(t *gorp.TableMap, colSizes map[string]int) {
+		for col, size := range colSizes {
+			t.ColMap(col).MaxSize = size
+		}
+	}
+
+	t := dbm.AddTable(models.Record{}).SetKeys(true, "Id")
+	setColumnSizes(t, map[string]int{
+		"Time":   50,
+		"Amount": 50,
+		"Kind":   50,
+	})
+
+	dbm.TraceOn("[gorp]", log.New(os.Stdout, "sql:", log.Lmicroseconds))
+	err := dbm.CreateTablesIfNotExists()
+	if err != nil {
+		panic(fmt.Sprintf("Fail to create tables: %+v", err))
+	}
 }
