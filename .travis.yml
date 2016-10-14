@@ -3,10 +3,17 @@ go:
   - 1.6
   - 1.7
   - tip
+env:
+  - DB=sqlite
+
+before_install:
+  - export TRAVIS_BUILD_DIR=$HOME/gopath/src/github.com/rabierre/scrooge
+  - mkdir -p "$TRAVIS_BUILD_DIR"
+  - mv ./* "$TRAVIS_BUILD_DIR/"
+  - cd "$TRAVIS_BUILD_DIR"
 
 install:
-- go get -v -t github.com/rabierre/scrooge
+  - go get -v -t github.com/rabierre/scrooge
 
 script:
-- echo [{"Time":"2016-10-13T00:00:00Z","Amount":"7400","Kind":"Food"}] > records.json
-- go test ./...
+  - go test ./...

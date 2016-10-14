@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-gorp/gorp"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rabierre/scrooge/models"
+	"gopkg.in/gorp.v1"
 )
 
 var (
