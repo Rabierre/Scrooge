@@ -89,17 +89,20 @@ func NewEngine() *gin.Engine {
 		err := dbm.SelectOne(record, "select * from Record where Id = ?", id)
 
 		t, err := time.Parse("2006-01-02", c.PostForm("date"))
+		if err == nil {
+			record.Time = t
+		}
+		if c.PostForm("amount") != "" {
+			record.Amount = c.PostForm("amount")
+		}
+		if c.PostForm("kind") != "" {
+			record.Kind = c.PostForm("kind")
+		}
+
+		cnt, err := dbm.Update(record)
 		if err != nil {
 			panic(err)
 		}
-		amount := c.PostForm("amount")
-		kind := c.PostForm("kind")
-
-		record.Time = t
-		record.Amount = amount
-		record.Kind = kind
-
-		cnt, err := dbm.Update(record)
 		if cnt > 0 {
 			c.Redirect(http.StatusSeeOther, fmt.Sprintf("/day/%v", t))
 		}

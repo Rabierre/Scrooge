@@ -111,17 +111,42 @@ func TestUpdateRecord(t *testing.T) {
 	setup()
 	defer setdown()
 
-	record := &models.Record{0, time.Now(), "1000", "Food"}
-	dbm.Insert(record)
-	fmt.Println("res", record.Id)
-
 	r := NewEngine()
 
+	UpdateRecord(t, r)
+	PartialUpdateRecord(t, r)
+}
+
+func UpdateRecord(t *testing.T, r http.Handler) {
+	// Prepare record
+	record := &models.Record{0, time.Now(), "1000", "Food"}
+	dbm.Insert(record)
+
+	// Update record
+	location := fmt.Sprintf("/update/%d", record.Id)
 	body := strings.NewReader("date=2016-10-17&amount=2000&kind=Study")
-	w := PerformPostRequest(r, "POST", fmt.Sprintf("/update/%d", record.Id), body)
+	w := PerformPostRequest(r, "POST", location, body)
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 
+	// Check record is updated
 	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
 	assert.Equal(t, record.Amount, "2000")
+	assert.Equal(t, record.Kind, "Study")
+}
+
+func PartialUpdateRecord(t *testing.T, r http.Handler) {
+	// Prepare record
+	record := &models.Record{0, time.Now(), "1000", "Food"}
+	dbm.Insert(record)
+
+	// Update record
+	location := fmt.Sprintf("/update/%d", record.Id)
+	body := strings.NewReader("kind=Study")
+	w := PerformPostRequest(r, "POST", location, body)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+
+	// Check record is updated
+	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	assert.Equal(t, record.Amount, "1000")
 	assert.Equal(t, record.Kind, "Study")
 }
