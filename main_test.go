@@ -24,18 +24,19 @@ func setup() {
 }
 
 func setdown() {
-	tables := []string{}
+	queries := []string{}
 	cur, _ := db.Query("select name from sqlite_master where type = 'table';")
 	for cur.Next() {
-		query := ""
-		cur.Scan(&query)
-		if query != "sqlite_sequence" {
-			tables = append(tables, query)
+		name := ""
+		cur.Scan(&name)
+		if name != "sqlite_sequence" {
+			queries = append(queries, fmt.Sprintf("delete from %s;", name))
 		}
 	}
+	queries = append(queries, "VACUUM")
 
-	for _, t := range tables {
-		db.Exec(fmt.Sprintf("drop table %s;", t))
+	for _, q := range queries {
+		db.Exec(q)
 	}
 	db.Close()
 }
