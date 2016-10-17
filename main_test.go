@@ -2,8 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -60,6 +63,14 @@ func PerformRequest(r http.Handler, method, path string) *httptest.ResponseRecor
 	return w
 }
 
+func PerformPostRequest(r http.Handler, method, path string, body io.Reader) *httptest.ResponseRecorder {
+	req, _ := http.NewRequest(method, path, body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
 func TestAllRoutesExist(t *testing.T) {
 	setup()
 	defer setdown()
@@ -80,4 +91,23 @@ func TestAllRoutesExist(t *testing.T) {
 		w := PerformRequest(r, rt.method, rt.location)
 		assert.NotEqual(t, rt.expectStatusCode, w.Code)
 	}
+}
+
+func TestUpdateRecord(t *testing.T) {
+	setup()
+	defer setdown()
+
+	record := &models.Record{0, time.Now(), "1000", "Food"}
+	dbm.Insert(record)
+	fmt.Println("res", record.Id)
+
+	r := NewEngine()
+
+	body := strings.NewReader("date=2016-10-17&amount=2000&kind=Study")
+	w := PerformPostRequest(r, "POST", fmt.Sprintf("/update/%d", record.Id), body)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+
+	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	assert.Equal(t, record.Amount, "2000")
+	assert.Equal(t, record.Kind, "Study")
 }
