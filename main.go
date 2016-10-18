@@ -47,7 +47,7 @@ func NewEngine() *gin.Engine {
 		rsByKind := sortByKind(records)
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
-			"time":        t.String(),
+			"time":        &t,
 			"dayRecord":   records,
 			"byKind":      rsByKind,
 			"totalAmount": totalAmount(records),
@@ -65,7 +65,7 @@ func NewEngine() *gin.Engine {
 		rsByKind := sortByKind(records)
 
 		c.HTML(http.StatusOK, "month.tmpl", gin.H{
-			"time":        t.String(),
+			"time":        &t,
 			"dayRecord":   records,
 			"byKind":      rsByKind,
 			"totalAmount": totalAmount(records),
