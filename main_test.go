@@ -2,8 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +24,20 @@ func setup() {
 }
 
 func setdown() {
+	queries := []string{}
+	cur, _ := db.Query("select name from sqlite_master where type = 'table';")
+	for cur.Next() {
+		name := ""
+		cur.Scan(&name)
+		if name != "sqlite_sequence" {
+			queries = append(queries, fmt.Sprintf("delete from %s;", name))
+		}
+	}
+	queries = append(queries, "VACUUM")
+
+	for _, q := range queries {
+		db.Exec(q)
+	}
 	db.Close()
 }
 
@@ -60,6 +77,14 @@ func PerformRequest(r http.Handler, method, path string) *httptest.ResponseRecor
 	return w
 }
 
+func PerformPostRequest(r http.Handler, method, path string, body io.Reader) *httptest.ResponseRecorder {
+	req, _ := http.NewRequest(method, path, body)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	return w
+}
+
 func TestAllRoutesExist(t *testing.T) {
 	setup()
 	defer setdown()
@@ -80,4 +105,48 @@ func TestAllRoutesExist(t *testing.T) {
 		w := PerformRequest(r, rt.method, rt.location)
 		assert.NotEqual(t, rt.expectStatusCode, w.Code)
 	}
+}
+
+func TestUpdateRecord(t *testing.T) {
+	setup()
+	defer setdown()
+
+	r := NewEngine()
+
+	UpdateRecord(t, r)
+	PartialUpdateRecord(t, r)
+}
+
+func UpdateRecord(t *testing.T, r http.Handler) {
+	// Prepare record
+	record := &models.Record{0, time.Now(), "1000", "Food"}
+	dbm.Insert(record)
+
+	// Update record
+	location := fmt.Sprintf("/update/%d", record.Id)
+	body := strings.NewReader("date=2016-10-17&amount=2000&kind=Study")
+	w := PerformPostRequest(r, "POST", location, body)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+
+	// Check record is updated
+	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	assert.Equal(t, record.Amount, "2000")
+	assert.Equal(t, record.Kind, "Study")
+}
+
+func PartialUpdateRecord(t *testing.T, r http.Handler) {
+	// Prepare record
+	record := &models.Record{0, time.Now(), "1000", "Food"}
+	dbm.Insert(record)
+
+	// Update record
+	location := fmt.Sprintf("/update/%d", record.Id)
+	body := strings.NewReader("kind=Study")
+	w := PerformPostRequest(r, "POST", location, body)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+
+	// Check record is updated
+	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	assert.Equal(t, record.Amount, "1000")
+	assert.Equal(t, record.Kind, "Study")
 }
