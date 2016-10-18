@@ -69,6 +69,44 @@ func TestSortByKind(t *testing.T) {
 	}
 }
 
+func TestRecordsByDay(t *testing.T) {
+	setup()
+	defer setdown()
+
+	today, _ := time.Parse(time.RFC3339, "2016-10-31T00:00:00+09:00")
+	tomorrow, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
+	rs := []*models.Record{
+		&models.Record{0, today, "1000", "Food"},
+		&models.Record{0, tomorrow, "2000", "Food"},
+	}
+	for _, r := range rs {
+		dbm.Insert(r)
+	}
+
+	records := recordsByDate(today)
+	assert.Equal(t, len(*records), 1)
+	assert.Equal(t, (*records)[0].Id, rs[0].Id)
+}
+
+func TestRecordsByMonth(t *testing.T) {
+	setup()
+	defer setdown()
+
+	thisMonth, _ := time.Parse(time.RFC3339, "2016-10-31T23:59:59+09:00")
+	nextMonth, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
+	rs := []*models.Record{
+		&models.Record{0, thisMonth, "1000", "Food"},
+		&models.Record{0, nextMonth, "2000", "Food"},
+	}
+	for _, r := range rs {
+		dbm.Insert(r)
+	}
+
+	records := recordsByMonth(thisMonth)
+	assert.Equal(t, len(*records), 1)
+	assert.Equal(t, (*records)[0].Id, rs[0].Id)
+}
+
 // This code came from gin-gonic/gin/routes_test.go
 func PerformRequest(r http.Handler, method, path string) *httptest.ResponseRecorder {
 	req, _ := http.NewRequest(method, path, nil)

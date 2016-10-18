@@ -1,0 +1,20 @@
+<p>Total Amount: {{ .totalAmount }}</p>
+
+<p>Spend records of day</p>
+{{ range .dayRecord }}
+<div>
+    <span>{{ .Time.Month }}/{{ .Time.Day }}</span>
+    <span>{{ .Amount }}</span>
+    <span>{{ .Kind }}</span>
+</div>
+<br/>
+{{ end }}
+
+<p>Spend record by Type</p>
+{{ $kindAmount := .kindAmount}}
+{{ range $kind, $value := .byKind }}
+<div>
+    <p>{{ $kind }}</p>
+    <span>{{ index $kindAmount $kind }}</span>
+</div>
+{{ end }}

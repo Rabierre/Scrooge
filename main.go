@@ -43,15 +43,28 @@ func NewEngine() *gin.Engine {
 			panic(err)
 		}
 
-		records := &[]models.Record{}
-		_, err = dbm.Select(records, "select * from Record where Time = ?", t)
+		records := recordsByDate(t)
+		rsByKind := sortByKind(records)
+
+		c.HTML(http.StatusOK, "day.tmpl", gin.H{
+			"time":        t.String(),
+			"dayRecord":   records,
+			"byKind":      rsByKind,
+			"totalAmount": totalAmount(records),
+			"kindAmount":  totalAmountByKind(rsByKind),
+		})
+	})
+
+	router.GET("/month/:date", func(c *gin.Context) {
+		t, err := time.Parse("2006-01", c.Param("date"))
 		if err != nil {
 			panic(err)
 		}
 
+		records := recordsByMonth(t)
 		rsByKind := sortByKind(records)
 
-		c.HTML(http.StatusOK, "day.tmpl", gin.H{
+		c.HTML(http.StatusOK, "month.tmpl", gin.H{
 			"time":        t.String(),
 			"dayRecord":   records,
 			"byKind":      rsByKind,
@@ -88,7 +101,7 @@ func NewEngine() *gin.Engine {
 		record := &models.Record{}
 		err := dbm.SelectOne(record, "select * from Record where Id = ?", id)
 
-		t, err := time.Parse("2006-01-02", c.PostForm("date"))
+		t, err := time.Parse("2006-01-02T15:04:05Z07:00", c.PostForm("date"))
 		if err == nil {
 			record.Time = t
 		}
@@ -109,6 +122,29 @@ func NewEngine() *gin.Engine {
 	})
 
 	return router
+}
+
+func recordsByDate(t time.Time) *[]models.Record {
+	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
+	fmt.Println(startOfToday, startOfTomorrow)
+	records := &[]models.Record{}
+	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
+	if err != nil {
+		panic(err)
+	}
+	return records
+}
+
+func recordsByMonth(t time.Time) *[]models.Record {
+	startOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+	startOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+	records := &[]models.Record{}
+	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
+	if err != nil {
+		panic(err)
+	}
+	return records
 }
 
 func totalAmount(records *[]models.Record) float64 {
