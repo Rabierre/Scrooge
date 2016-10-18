@@ -45,6 +45,8 @@ func NewEngine() *gin.Engine {
 
 		records := recordsByDate(t)
 		rsByKind := sortByKind(records)
+		prev := time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location())
+		next := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
 			"time":        &t,
@@ -52,6 +54,8 @@ func NewEngine() *gin.Engine {
 			"byKind":      rsByKind,
 			"totalAmount": totalAmount(records),
 			"kindAmount":  totalAmountByKind(rsByKind),
+			"prevUrl":     fmt.Sprintf("/day/%d-%02d-%02d", prev.Year(), prev.Month(), prev.Day()),
+			"nextUrl":     fmt.Sprintf("/day/%d-%02d-%02d", next.Year(), next.Month(), next.Day()),
 		})
 	})
 
@@ -63,6 +67,8 @@ func NewEngine() *gin.Engine {
 
 		records := recordsByMonth(t)
 		rsByKind := sortByKind(records)
+		prev := time.Date(t.Year(), t.Month()-1, 1, 0, 0, 0, 0, t.Location())
+		next := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 
 		c.HTML(http.StatusOK, "month.tmpl", gin.H{
 			"time":        &t,
@@ -70,6 +76,8 @@ func NewEngine() *gin.Engine {
 			"byKind":      rsByKind,
 			"totalAmount": totalAmount(records),
 			"kindAmount":  totalAmountByKind(rsByKind),
+			"prevUrl":     fmt.Sprintf("/month/%d-%02d", prev.Year(), prev.Month()),
+			"nextUrl":     fmt.Sprintf("/month/%d-%02d", next.Year(), next.Month()),
 		})
 	})
 

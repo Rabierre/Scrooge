@@ -133,8 +133,10 @@ func TestAllRoutesExist(t *testing.T) {
 		expectStatusCode uint32
 	}{
 		{"GET", "/day/2016-01-01", http.StatusNotFound},
+		{"GET", "/month/2016-01", http.StatusNotFound},
 		{"GET", "/insert", http.StatusNotFound},
 		{"POST", "/insert", http.StatusNotFound},
+		{"POST", "/update/1", http.StatusNotFound},
 	}
 
 	r := NewEngine()
