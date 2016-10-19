@@ -44,9 +44,11 @@ func setdown() {
 func dummyRecords() *[]models.Record {
 	date1, _ := time.Parse("2006-01-02", "2016-10-07")
 	date2, _ := time.Parse("2006-01-02", "2016-10-08")
+	label1 := models.Label{Id: 1, Name: "Food"}
+	label2 := models.Label{Id: 2, Name: "Study"}
 	return &[]models.Record{
-		{1, date1, "1000.0", "Food"},
-		{2, date2, "1000.0", "Study"},
+		{1, date1, "1000.0", label1.Id},
+		{2, date2, "1000.0", label2.Id},
 	}
 }
 
@@ -75,9 +77,11 @@ func TestRecordsByDay(t *testing.T) {
 
 	today, _ := time.Parse(time.RFC3339, "2016-10-31T00:00:00+09:00")
 	tomorrow, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
+	label := &models.Label{Id: 0, Name: "Food"}
+	dbm.Insert(label)
 	rs := []*models.Record{
-		&models.Record{0, today, "1000", "Food"},
-		&models.Record{0, tomorrow, "2000", "Food"},
+		&models.Record{0, today, "1000", label.Id},
+		&models.Record{0, tomorrow, "2000", label.Id},
 	}
 	for _, r := range rs {
 		dbm.Insert(r)
@@ -94,9 +98,10 @@ func TestRecordsByMonth(t *testing.T) {
 
 	thisMonth, _ := time.Parse(time.RFC3339, "2016-10-31T23:59:59+09:00")
 	nextMonth, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
+	label := models.Label{Id: 0, Name: "Food"}
 	rs := []*models.Record{
-		&models.Record{0, thisMonth, "1000", "Food"},
-		&models.Record{0, nextMonth, "2000", "Food"},
+		&models.Record{0, thisMonth, "1000", label.Id},
+		&models.Record{0, nextMonth, "2000", label.Id},
 	}
 	for _, r := range rs {
 		dbm.Insert(r)
@@ -113,9 +118,11 @@ func TestRecordsByYear(t *testing.T) {
 
 	thisYear, _ := time.Parse(time.RFC3339, "2016-12-31T23:59:59+09:00")
 	nextYear, _ := time.Parse(time.RFC3339, "2017-01-01T00:00:00+09:00")
+	label := &models.Label{Id: 0, Name: "Food"}
+	dbm.Insert(label)
 	rs := []*models.Record{
-		&models.Record{0, thisYear, "1000", "Food"},
-		&models.Record{0, nextYear, "2000", "Food"},
+		&models.Record{0, thisYear, "1000", label.Id},
+		&models.Record{0, nextYear, "2000", label.Id},
 	}
 	for _, r := range rs {
 		dbm.Insert(r)
@@ -179,34 +186,42 @@ func TestUpdateRecord(t *testing.T) {
 
 func UpdateRecord(t *testing.T, r http.Handler) {
 	// Prepare record
-	record := &models.Record{0, time.Now(), "1000", "Food"}
+	label1 := &models.Label{Id: 0, Name: "Food"}
+	label2 := &models.Label{Id: 0, Name: "Study"}
+	dbm.Insert(label1)
+	dbm.Insert(label2)
+	record := &models.Record{0, time.Now(), "1000", label1.Id}
 	dbm.Insert(record)
 
 	// Update record
 	location := fmt.Sprintf("/update/%d", record.Id)
-	body := strings.NewReader("date=2016-10-17&amount=2000&kind=Study")
+	body := strings.NewReader(fmt.Sprintf("date=2016-10-17&amount=2000&labelId=%d", label2.Id))
 	w := PerformPostRequest(r, "POST", location, body)
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 
 	// Check record is updated
 	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
 	assert.Equal(t, record.Amount, "2000")
-	assert.Equal(t, record.Kind, "Study")
+	assert.Equal(t, record.LabelId, label2.Id)
 }
 
 func PartialUpdateRecord(t *testing.T, r http.Handler) {
 	// Prepare record
-	record := &models.Record{0, time.Now(), "1000", "Food"}
+	label1 := &models.Label{Id: 0, Name: "Food"}
+	label2 := &models.Label{Id: 0, Name: "Study"}
+	dbm.Insert(label1)
+	dbm.Insert(label2)
+	record := &models.Record{0, time.Now(), "1000", label1.Id}
 	dbm.Insert(record)
 
 	// Update record
 	location := fmt.Sprintf("/update/%d", record.Id)
-	body := strings.NewReader("kind=Study")
+	body := strings.NewReader(fmt.Sprintf("labelId=%d", label2.Id))
 	w := PerformPostRequest(r, "POST", location, body)
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 
 	// Check record is updated
 	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
 	assert.Equal(t, record.Amount, "1000")
-	assert.Equal(t, record.Kind, "Study")
+	assert.Equal(t, record.LabelId, label2.Id)
 }
