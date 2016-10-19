@@ -109,7 +109,7 @@ func NewEngine() *gin.Engine {
 		record := &models.Record{}
 		err := dbm.SelectOne(record, "select * from Record where Id = ?", id)
 
-		t, err := time.Parse("2006-01-02T15:04:05Z07:00", c.PostForm("date"))
+		t, err := time.Parse(time.RFC3339, c.PostForm("date"))
 		if err == nil {
 			record.Time = t
 		}
