@@ -1,10 +1,12 @@
 package models
 
-import "time"
+import (
+	"time"
+)
 
 type Record struct {
-	Id     uint32
-	Time   time.Time
-	Amount string
-	Kind   string
+	Id      uint64
+	Time    time.Time
+	Amount  string
+	LabelId uint64
 }

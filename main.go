@@ -241,6 +241,15 @@ func InitDB() {
 		"Amount": 50,
 		"Kind":   50,
 	})
+	t = dbm.AddTable(models.Label{}).SetKeys(true, "Id")
+	setColumnSizes(t, map[string]int{
+		"Name":       50,
+		"CategoryId": 50,
+	})
+	t = dbm.AddTable(models.Category{}).SetKeys(true, "Id")
+	setColumnSizes(t, map[string]int{
+		"Name": 50,
+	})
 
 	dbm.TraceOn("[gorp]", log.New(os.Stdout, "sql:", log.Lmicroseconds))
 	err := dbm.CreateTablesIfNotExists()
