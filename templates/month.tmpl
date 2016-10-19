@@ -1,4 +1,4 @@
-<h2>{{.time.Year}} {{.time.Month}} {{.time.Day}}</h2>
+<h2>{{.time.Year}} {{.time.Month}}</h2>
 <a href={{.prevUrl}}><div>Prev</div></a>
 <a href={{.nextUrl}}><div>Next</div></a>
 
@@ -7,7 +7,7 @@
 <p>Spend records of day</p>
 {{ range .dayRecord }}
 <div>
-    <span>{{ .Time.Hour }}</span>
+    <span>{{ .Time.Month }}/{{ .Time.Day }}</span>
     <span>{{ .Amount }}</span>
     <span>{{ .Kind }}</span>
 </div>
