@@ -104,23 +104,29 @@ func NewEngine() *gin.Engine {
 	})
 
 	router.GET("/insert", func(c *gin.Context) {
-		c.HTML(http.StatusOK, "insert.tmpl", gin.H{})
+		labels := &[]models.Label{}
+		dbm.Select(labels, "select * from Label")
+
+		c.HTML(http.StatusOK, "insert.tmpl", gin.H{
+			"labels": labels,
+		})
 	})
 
 	router.POST("/insert", func(c *gin.Context) {
 		amount := c.PostForm("amount")
-		kind := c.PostForm("kind")
+		labelId := c.PostForm("labelId")
 		date, err := time.Parse("2006-01-02", c.PostForm("date"))
-		if err != nil || kind == "" || amount == "" {
+		if err != nil || labelId == "" || amount == "" {
 			c.HTML(http.StatusForbidden, "insert.tmpl", gin.H{
-				"amount": amount,
-				"kind":   kind,
-				"date":   c.PostForm("date"),
+				"amount":  amount,
+				"labelId": labelId,
+				"date":    c.PostForm("date"),
 			})
 			return
 		}
 
-		dbm.Insert(&models.Record{0, date, amount, kind})
+		u, _ := strconv.ParseUint(labelId, 10, 64)
+		dbm.Insert(&models.Record{0, date, amount, u})
 
 		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
 	})
@@ -138,8 +144,9 @@ func NewEngine() *gin.Engine {
 		if c.PostForm("amount") != "" {
 			record.Amount = c.PostForm("amount")
 		}
-		if c.PostForm("kind") != "" {
-			record.Kind = c.PostForm("kind")
+		u, err := strconv.ParseUint(c.PostForm("labelId"), 10, 64)
+		if err == nil {
+			record.LabelId = u
 		}
 
 		cnt, err := dbm.Update(record)
@@ -157,7 +164,6 @@ func NewEngine() *gin.Engine {
 func recordsByDate(t time.Time) *[]models.Record {
 	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
-	fmt.Println(startOfToday, startOfTomorrow)
 	records := &[]models.Record{}
 	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
 	if err != nil {
@@ -201,21 +207,21 @@ func totalAmount(records *[]models.Record) float64 {
 	return total
 }
 
-func sortByKind(records *[]models.Record) *map[string][]models.Record {
-	result := make(map[string][]models.Record)
+func sortByKind(records *[]models.Record) *map[uint64][]models.Record {
+	result := make(map[uint64][]models.Record)
 	if records == nil {
 		return &result
 	}
 
 	for _, r := range *records {
-		result[r.Kind] = append(result[r.Kind], r)
+		result[r.LabelId] = append(result[r.LabelId], r)
 	}
 
 	return &result
 }
 
-func totalAmountByKind(records *map[string][]models.Record) *map[string]float64 {
-	result := make(map[string]float64)
+func totalAmountByKind(records *map[uint64][]models.Record) *map[uint64]float64 {
+	result := make(map[uint64]float64)
 	if records == nil {
 		return &result
 	}
@@ -237,9 +243,9 @@ func InitDB() {
 
 	t := dbm.AddTable(models.Record{}).SetKeys(true, "Id")
 	setColumnSizes(t, map[string]int{
-		"Time":   50,
-		"Amount": 50,
-		"Kind":   50,
+		"Time":    50,
+		"Amount":  50,
+		"LabelId": 50,
 	})
 	t = dbm.AddTable(models.Label{}).SetKeys(true, "Id")
 	setColumnSizes(t, map[string]int{
