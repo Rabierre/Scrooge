@@ -81,6 +81,28 @@ func NewEngine() *gin.Engine {
 		})
 	})
 
+	router.GET("/year/:year", func(c *gin.Context) {
+		t, err := time.Parse("2006", c.Param("year"))
+		if err != nil {
+			panic(err)
+		}
+
+		records := recordsByYear(t)
+		rsByKind := sortByKind(records)
+		prev := time.Date(t.Year()-1, 1, 1, 0, 0, 0, 0, t.Location())
+		next := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
+
+		c.HTML(http.StatusOK, "year.tmpl", gin.H{
+			"time":        &t,
+			"dayRecord":   records,
+			"byKind":      rsByKind,
+			"totalAmount": totalAmount(records),
+			"kindAmount":  totalAmountByKind(rsByKind),
+			"prevUrl":     fmt.Sprintf("/year/%d", prev.Year()),
+			"nextUrl":     fmt.Sprintf("/year/%d", next.Year()),
+		})
+	})
+
 	router.GET("/insert", func(c *gin.Context) {
 		c.HTML(http.StatusOK, "insert.tmpl", gin.H{})
 	})
@@ -149,6 +171,17 @@ func recordsByMonth(t time.Time) *[]models.Record {
 	startOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
 	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
+	if err != nil {
+		panic(err)
+	}
+	return records
+}
+
+func recordsByYear(t time.Time) *[]models.Record {
+	startOfYear := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+	startOfNextYear := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
+	records := &[]models.Record{}
+	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfYear, startOfNextYear)
 	if err != nil {
 		panic(err)
 	}

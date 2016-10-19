@@ -107,6 +107,25 @@ func TestRecordsByMonth(t *testing.T) {
 	assert.Equal(t, (*records)[0].Id, rs[0].Id)
 }
 
+func TestRecordsByYear(t *testing.T) {
+	setup()
+	defer setdown()
+
+	thisYear, _ := time.Parse(time.RFC3339, "2016-12-31T23:59:59+09:00")
+	nextYear, _ := time.Parse(time.RFC3339, "2017-01-01T00:00:00+09:00")
+	rs := []*models.Record{
+		&models.Record{0, thisYear, "1000", "Food"},
+		&models.Record{0, nextYear, "2000", "Food"},
+	}
+	for _, r := range rs {
+		dbm.Insert(r)
+	}
+
+	records := recordsByYear(thisYear)
+	assert.Equal(t, len(*records), 1)
+	assert.Equal(t, (*records)[0].Id, rs[0].Id)
+}
+
 // This code came from gin-gonic/gin/routes_test.go
 func PerformRequest(r http.Handler, method, path string) *httptest.ResponseRecorder {
 	req, _ := http.NewRequest(method, path, nil)
@@ -134,6 +153,7 @@ func TestAllRoutesExist(t *testing.T) {
 	}{
 		{"GET", "/day/2016-01-01", http.StatusNotFound},
 		{"GET", "/month/2016-01", http.StatusNotFound},
+		{"GET", "/year/2016", http.StatusNotFound},
 		{"GET", "/insert", http.StatusNotFound},
 		{"POST", "/insert", http.StatusNotFound},
 		{"POST", "/update/1", http.StatusNotFound},
