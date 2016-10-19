@@ -1,0 +1,24 @@
+<h2>{{.time.Year}}</h2>
+<a href={{.prevUrl}}><div>Prev</div></a>
+<a href={{.nextUrl}}><div>Next</div></a>
+
+<p>Total Amount: {{ .totalAmount }}</p>
+
+<p>Spend records of day</p>
+{{ range .dayRecord }}
+<div>
+    <span>{{ .Time.Hour }}</span>
+    <span>{{ .Amount }}</span>
+    <span>{{ .Kind }}</span>
+</div>
+<br/>
+{{ end }}
+
+<p>Spend record by Type</p>
+{{ $kindAmount := .kindAmount}}
+{{ range $kind, $value := .byKind }}
+<div>
+    <p>{{ $kind }}</p>
+    <span>{{ index $kindAmount $kind }}</span>
+</div>
+{{ end }}
