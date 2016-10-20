@@ -11,22 +11,18 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/rabierre/scrooge/db"
 	"github.com/rabierre/scrooge/models"
 	"gopkg.in/gorp.v1"
 )
 
-var (
-	db  *sql.DB
-	dbm *gorp.DbMap
-)
-
 func main() {
 	err := error(nil)
-	db, err = sql.Open("sqlite3", "database")
+	db.Db, err = sql.Open("sqlite3", "database")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+	defer db.Db.Close()
 	InitDB()
 
 	r := NewEngine()
@@ -105,7 +101,7 @@ func NewEngine() *gin.Engine {
 
 	router.GET("/insert", func(c *gin.Context) {
 		labels := &[]models.Label{}
-		dbm.Select(labels, "select * from Label")
+		db.Dbm.Select(labels, "select * from Label")
 
 		c.HTML(http.StatusOK, "insert.tmpl", gin.H{
 			"labels": labels,
@@ -126,7 +122,7 @@ func NewEngine() *gin.Engine {
 		}
 
 		u, _ := strconv.ParseUint(labelId, 10, 64)
-		dbm.Insert(&models.Record{0, date, amount, u})
+		db.Dbm.Insert(&models.Record{0, date, amount, u})
 
 		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
 	})
@@ -134,8 +130,8 @@ func NewEngine() *gin.Engine {
 	router.POST("/update/:recordId", func(c *gin.Context) {
 		id := c.Param("recordId")
 
-		record := &models.Record{}
-		err := dbm.SelectOne(record, "select * from Record where Id = ?", id)
+		obj, err := db.Dbm.Get(models.Record{}, id)
+		record := obj.(*models.Record)
 
 		t, err := time.Parse(time.RFC3339, c.PostForm("date"))
 		if err == nil {
@@ -149,7 +145,7 @@ func NewEngine() *gin.Engine {
 			record.LabelId = u
 		}
 
-		cnt, err := dbm.Update(record)
+		cnt, err := db.Dbm.Update(record)
 		if err != nil {
 			panic(err)
 		}
@@ -165,7 +161,7 @@ func recordsByDate(t time.Time) *[]models.Record {
 	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
+	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
 	if err != nil {
 		panic(err)
 	}
@@ -176,7 +172,7 @@ func recordsByMonth(t time.Time) *[]models.Record {
 	startOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 	startOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
+	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
 	if err != nil {
 		panic(err)
 	}
@@ -187,7 +183,7 @@ func recordsByYear(t time.Time) *[]models.Record {
 	startOfYear := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
 	startOfNextYear := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfYear, startOfNextYear)
+	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfYear, startOfNextYear)
 	if err != nil {
 		panic(err)
 	}
@@ -233,7 +229,7 @@ func totalAmountByKind(records *map[uint64][]models.Record) *map[uint64]float64 
 }
 
 func InitDB() {
-	dbm = &gorp.DbMap{Db: db, Dialect: gorp.SqliteDialect{}}
+	db.Dbm = &gorp.DbMap{Db: db.Db, Dialect: gorp.SqliteDialect{}}
 
 	setColumnSizes := func(t *gorp.TableMap, colSizes map[string]int) {
 		for col, size := range colSizes {
@@ -241,24 +237,24 @@ func InitDB() {
 		}
 	}
 
-	t := dbm.AddTable(models.Record{}).SetKeys(true, "Id")
+	t := db.Dbm.AddTable(models.Record{}).SetKeys(true, "Id")
 	setColumnSizes(t, map[string]int{
 		"Time":    50,
 		"Amount":  50,
 		"LabelId": 50,
 	})
-	t = dbm.AddTable(models.Label{}).SetKeys(true, "Id")
+	t = db.Dbm.AddTable(models.Label{}).SetKeys(true, "Id")
 	setColumnSizes(t, map[string]int{
 		"Name":       50,
 		"CategoryId": 50,
 	})
-	t = dbm.AddTable(models.Category{}).SetKeys(true, "Id")
+	t = db.Dbm.AddTable(models.Category{}).SetKeys(true, "Id")
 	setColumnSizes(t, map[string]int{
 		"Name": 50,
 	})
 
-	dbm.TraceOn("[gorp]", log.New(os.Stdout, "sql:", log.Lmicroseconds))
-	err := dbm.CreateTablesIfNotExists()
+	db.Dbm.TraceOn("[gorp]", log.New(os.Stdout, "sql:", log.Lmicroseconds))
+	err := db.Dbm.CreateTablesIfNotExists()
 	if err != nil {
 		panic(fmt.Sprintf("Fail to create tables: %+v", err))
 	}

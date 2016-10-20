@@ -10,13 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rabierre/scrooge/db"
 	"github.com/rabierre/scrooge/models"
 	"github.com/stretchr/testify/assert"
 )
 
 func setup() {
 	err := error(nil)
-	db, err = sql.Open("sqlite3", "testdb")
+	db.Db, err = sql.Open("sqlite3", "testdb")
 	if err != nil {
 		panic(err)
 	}
@@ -25,7 +26,7 @@ func setup() {
 
 func setdown() {
 	queries := []string{}
-	cur, _ := db.Query("select name from sqlite_master where type = 'table';")
+	cur, _ := db.Db.Query("select name from sqlite_master where type = 'table';")
 	for cur.Next() {
 		name := ""
 		cur.Scan(&name)
@@ -36,9 +37,9 @@ func setdown() {
 	queries = append(queries, "VACUUM")
 
 	for _, q := range queries {
-		db.Exec(q)
+		db.Db.Exec(q)
 	}
-	db.Close()
+	db.Db.Close()
 }
 
 func dummyRecords() *[]models.Record {
@@ -78,13 +79,13 @@ func TestRecordsByDay(t *testing.T) {
 	today, _ := time.Parse(time.RFC3339, "2016-10-31T00:00:00+09:00")
 	tomorrow, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
 	label := &models.Label{Id: 0, Name: "Food"}
-	dbm.Insert(label)
+	db.Dbm.Insert(label)
 	rs := []*models.Record{
 		&models.Record{0, today, "1000", label.Id},
 		&models.Record{0, tomorrow, "2000", label.Id},
 	}
 	for _, r := range rs {
-		dbm.Insert(r)
+		db.Dbm.Insert(r)
 	}
 
 	records := recordsByDate(today)
@@ -104,7 +105,7 @@ func TestRecordsByMonth(t *testing.T) {
 		&models.Record{0, nextMonth, "2000", label.Id},
 	}
 	for _, r := range rs {
-		dbm.Insert(r)
+		db.Dbm.Insert(r)
 	}
 
 	records := recordsByMonth(thisMonth)
@@ -119,13 +120,13 @@ func TestRecordsByYear(t *testing.T) {
 	thisYear, _ := time.Parse(time.RFC3339, "2016-12-31T23:59:59+09:00")
 	nextYear, _ := time.Parse(time.RFC3339, "2017-01-01T00:00:00+09:00")
 	label := &models.Label{Id: 0, Name: "Food"}
-	dbm.Insert(label)
+	db.Dbm.Insert(label)
 	rs := []*models.Record{
 		&models.Record{0, thisYear, "1000", label.Id},
 		&models.Record{0, nextYear, "2000", label.Id},
 	}
 	for _, r := range rs {
-		dbm.Insert(r)
+		db.Dbm.Insert(r)
 	}
 
 	records := recordsByYear(thisYear)
@@ -188,10 +189,10 @@ func UpdateRecord(t *testing.T, r http.Handler) {
 	// Prepare record
 	label1 := &models.Label{Id: 0, Name: "Food"}
 	label2 := &models.Label{Id: 0, Name: "Study"}
-	dbm.Insert(label1)
-	dbm.Insert(label2)
+	db.Dbm.Insert(label1)
+	db.Dbm.Insert(label2)
 	record := &models.Record{0, time.Now(), "1000", label1.Id}
-	dbm.Insert(record)
+	db.Dbm.Insert(record)
 
 	// Update record
 	location := fmt.Sprintf("/update/%d", record.Id)
@@ -200,7 +201,7 @@ func UpdateRecord(t *testing.T, r http.Handler) {
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 
 	// Check record is updated
-	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	db.Dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
 	assert.Equal(t, record.Amount, "2000")
 	assert.Equal(t, record.LabelId, label2.Id)
 }
@@ -209,10 +210,10 @@ func PartialUpdateRecord(t *testing.T, r http.Handler) {
 	// Prepare record
 	label1 := &models.Label{Id: 0, Name: "Food"}
 	label2 := &models.Label{Id: 0, Name: "Study"}
-	dbm.Insert(label1)
-	dbm.Insert(label2)
+	db.Dbm.Insert(label1)
+	db.Dbm.Insert(label2)
 	record := &models.Record{0, time.Now(), "1000", label1.Id}
-	dbm.Insert(record)
+	db.Dbm.Insert(record)
 
 	// Update record
 	location := fmt.Sprintf("/update/%d", record.Id)
@@ -221,7 +222,7 @@ func PartialUpdateRecord(t *testing.T, r http.Handler) {
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 
 	// Check record is updated
-	dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
+	db.Dbm.SelectOne(record, "select * from Record where Id = ?", record.Id)
 	assert.Equal(t, record.Amount, "1000")
 	assert.Equal(t, record.LabelId, label2.Id)
 }
