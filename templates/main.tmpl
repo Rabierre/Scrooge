@@ -1,0 +1,12 @@
+<h2>{{.time.Year}}/{{.time.Month}}/{{.time.Day}}</h2>
+
+<a href={{.yUrl}}>Yearly</a>
+<a href={{.mUrl}}>monthly</a>
+<a href={{.dUrl}}>Daily</a>
+
+<a href={{.prevUrl}}><div>Prev</div></a>
+<a href={{.nextUrl}}><div>Next</div></a>
+
+<p>Today: {{.dayAmount}}</p>
+<p>This month: {{.monthAmount}}</p>
+<p>This year: {{.yearAmount}}</p>
