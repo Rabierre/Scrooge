@@ -99,6 +99,24 @@ func NewEngine() *gin.Engine {
 		})
 	})
 
+	router.GET("/label/:id", func(c *gin.Context) {
+		labelId, err := strconv.ParseUint(c.Param("id"), 10, 64)
+		if err != nil {
+			panic("No label id")
+		}
+		t, err := time.Parse("2006-01-02", c.Query("date"))
+		if err != nil {
+			t = time.Now()
+		}
+
+		records := recordsByLabelId(labelId, t)
+		c.HTML(http.StatusOK, "label_day.tmpl", gin.H{
+			"time":        &t,
+			"dayRecord":   records,
+			"totalAmount": totalAmount(records),
+		})
+	})
+
 	router.GET("/insert", func(c *gin.Context) {
 		labels := &[]models.Label{}
 		db.Dbm.Select(labels, "select * from Label")
@@ -155,6 +173,17 @@ func NewEngine() *gin.Engine {
 	})
 
 	return router
+}
+
+func recordsByLabelId(labelId uint64, t time.Time) *[]models.Record {
+	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
+	records := &[]models.Record{}
+	_, err := db.Dbm.Select(records, "select * from Record where LabelId = ? and Time >= ? and Time < ?", labelId, startOfToday, startOfTomorrow)
+	if err != nil {
+		panic(err)
+	}
+	return records
 }
 
 func recordsByDate(t time.Time) *[]models.Record {
