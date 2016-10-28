@@ -33,6 +33,48 @@ func NewEngine() *gin.Engine {
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*")
 
+	router.GET("/", func(c *gin.Context) {
+		t, err := time.Parse("2006-01-02", c.Query("date"))
+		if err != nil {
+			t = time.Now()
+		}
+
+		today := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+		tmrr := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
+		dayAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", today, tmrr)
+		if err != nil {
+			dayAmount = 0.0
+		}
+
+		thisMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
+		nextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+		monthAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisMonth, nextMonth)
+		if err != nil {
+			monthAmount = 0.0
+		}
+
+		thisYear := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
+		nextYear := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
+		yearAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisYear, nextYear)
+		if err != nil {
+			monthAmount = 0.0
+		}
+
+		prev := time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location())
+
+		c.HTML(http.StatusOK, "main.tmpl", gin.H{
+			"time":        t,
+			"dayAmount":   dayAmount,
+			"monthAmount": monthAmount,
+			"yearAmount":  yearAmount,
+			"yUrl":        fmt.Sprintf("/year/%d", today.Year()),
+			"mUrl":        fmt.Sprintf("/month/%d-%02d", today.Year(), today.Month()),
+			"dUrl":        fmt.Sprintf("/day/%d-%02d-%02d", today.Year(), today.Month(), today.Day()),
+			"prevUrl":     fmt.Sprintf("/?date=%d-%02d-%02d", prev.Year(), prev.Month(), prev.Day()),
+			"nextUrl":     fmt.Sprintf("/?date=%d-%02d-%02d", tmrr.Year(), tmrr.Month(), tmrr.Day()),
+		})
+	})
+
 	router.GET("/day/:date", func(c *gin.Context) {
 		t, err := time.Parse("2006-01-02", c.Param("date"))
 		if err != nil {

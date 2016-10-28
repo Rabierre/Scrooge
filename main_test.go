@@ -159,6 +159,7 @@ func TestAllRoutesExist(t *testing.T) {
 		location         string
 		expectStatusCode uint32
 	}{
+		{"GET", "/", http.StatusNotFound},
 		{"GET", "/day/2016-01-01", http.StatusNotFound},
 		{"GET", "/month/2016-01", http.StatusNotFound},
 		{"GET", "/year/2016", http.StatusNotFound},
