@@ -9,7 +9,7 @@
 <div>
     <span>{{ .Time.Hour }}</span>
     <span>{{ .Amount }}</span>
-    <span>{{ .LabelName }}</span>
+    <a href="/label/{{.LabelId}}">{{ .LabelName }}</a>
 </div>
 <br/>
 {{ end }}

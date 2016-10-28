@@ -1,0 +1,11 @@
+<h2>{{.time.Year}} {{.time.Month}} {{.time.Day}}</h2>
+
+<p>Total Amount: {{ .totalAmount }}</p>
+
+<p>Spend records of day</p>
+{{ range .dayRecord }}
+<div>
+    <span>{{ .Time.Hour }}:{{ .Time.Minute }} : {{ .Amount }} {{ .LabelName }}</span>
+</div>
+<br/>
+{{ end }}

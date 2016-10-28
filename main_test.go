@@ -72,6 +72,27 @@ func TestSortByKind(t *testing.T) {
 	}
 }
 
+func TestRecordsByLabelId(t *testing.T) {
+	setup()
+	defer setdown()
+
+	today, _ := time.Parse(time.RFC3339, "2016-10-31T00:00:00+09:00")
+	tomorrow, _ := time.Parse(time.RFC3339, "2016-11-01T00:00:00+09:00")
+	label := &models.Label{Id: 0, Name: "Food"}
+	db.Dbm.Insert(label)
+	rs := []*models.Record{
+		&models.Record{0, today, "1000", label.Id},
+		&models.Record{0, tomorrow, "2000", label.Id},
+	}
+	for _, r := range rs {
+		db.Dbm.Insert(r)
+	}
+
+	records := recordsByLabelId(label.Id, today)
+	assert.Equal(t, len(*records), 1)
+	assert.Equal(t, (*records)[0].Id, rs[0].Id)
+}
+
 func TestRecordsByDay(t *testing.T) {
 	setup()
 	defer setdown()
@@ -163,6 +184,7 @@ func TestAllRoutesExist(t *testing.T) {
 		{"GET", "/day/2016-01-01", http.StatusNotFound},
 		{"GET", "/month/2016-01", http.StatusNotFound},
 		{"GET", "/year/2016", http.StatusNotFound},
+		{"GET", "/label/1", http.StatusNotFound},
 		{"GET", "/insert", http.StatusNotFound},
 		{"POST", "/insert", http.StatusNotFound},
 		{"POST", "/update/1", http.StatusNotFound},
