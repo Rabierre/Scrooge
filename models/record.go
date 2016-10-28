@@ -3,7 +3,7 @@ package models
 import (
 	"time"
 
-	"github.com/rabierre/scrooge/db"
+	"github.com/rabierre/scrooge/share"
 )
 
 type Record struct {
@@ -14,7 +14,7 @@ type Record struct {
 }
 
 func (r *Record) LabelName() string {
-	obj, err := db.Dbm.Get(Label{}, r.LabelId)
+	obj, err := share.Dbm.Get(Label{}, r.LabelId)
 	if err != nil {
 		panic(err)
 	}

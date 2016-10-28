@@ -1,7 +1,8 @@
-package db
+package share
 
 import (
 	"database/sql"
+
 	"gopkg.in/gorp.v1"
 )
 

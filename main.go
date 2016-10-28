@@ -1,29 +1,28 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rabierre/scrooge/db"
 	"github.com/rabierre/scrooge/models"
+	"github.com/rabierre/scrooge/share"
 	"gopkg.in/gorp.v1"
 )
 
+var (
+	Dbm *gorp.DbMap
+)
+
 func main() {
-	err := error(nil)
-	db.Db, err = sql.Open("sqlite3", "database")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Db.Close()
+	OpenDB()
+	defer CloseDB()
 	InitDB()
+
+	Dbm = share.Dbm
 
 	r := NewEngine()
 	r.Run()
@@ -39,28 +38,28 @@ func NewEngine() *gin.Engine {
 			t = time.Now()
 		}
 
-		today := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-		tmrr := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
-		dayAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", today, tmrr)
+		today := StartOfThisDay(t)
+		tmrr := StartOfNextDay(t)
+		dayAmount, err := Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", today, tmrr)
 		if err != nil {
 			dayAmount = 0.0
 		}
 
-		thisMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
-		nextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
-		monthAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisMonth, nextMonth)
+		thisMonth := StartOfThisMonth(t)
+		nextMonth := StartOfNextMonth(t)
+		monthAmount, err := Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisMonth, nextMonth)
 		if err != nil {
 			monthAmount = 0.0
 		}
 
-		thisYear := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
-		nextYear := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
-		yearAmount, err := db.Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisYear, nextYear)
+		thisYear := StartOfThisYear(t)
+		nextYear := StartOfNextYear(t)
+		yearAmount, err := Dbm.SelectFloat("select sum(Amount) from Record where Time >= ? AND Time < ?", thisYear, nextYear)
 		if err != nil {
 			monthAmount = 0.0
 		}
 
-		prev := time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location())
+		prev := StartOfPrevDay(t)
 
 		c.HTML(http.StatusOK, "main.tmpl", gin.H{
 			"time":        t,
@@ -83,8 +82,8 @@ func NewEngine() *gin.Engine {
 
 		records := recordsByDate(t)
 		rsByKind := sortByKind(records)
-		prev := time.Date(t.Year(), t.Month(), t.Day()-1, 0, 0, 0, 0, t.Location())
-		next := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
+		prev := StartOfPrevDay(t)
+		next := StartOfNextDay(t)
 
 		c.HTML(http.StatusOK, "day.tmpl", gin.H{
 			"time":        &t,
@@ -105,8 +104,8 @@ func NewEngine() *gin.Engine {
 
 		records := recordsByMonth(t)
 		rsByKind := sortByKind(records)
-		prev := time.Date(t.Year(), t.Month()-1, 1, 0, 0, 0, 0, t.Location())
-		next := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
+		prev := StartOfPrevMonth(t)
+		next := StartOfNextMonth(t)
 
 		c.HTML(http.StatusOK, "month.tmpl", gin.H{
 			"time":        &t,
@@ -127,8 +126,8 @@ func NewEngine() *gin.Engine {
 
 		records := recordsByYear(t)
 		rsByKind := sortByKind(records)
-		prev := time.Date(t.Year()-1, 1, 1, 0, 0, 0, 0, t.Location())
-		next := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
+		prev := StartOfPrevYear(t)
+		next := StartOfNextYear(t)
 
 		c.HTML(http.StatusOK, "year.tmpl", gin.H{
 			"time":        &t,
@@ -161,7 +160,7 @@ func NewEngine() *gin.Engine {
 
 	router.GET("/insert", func(c *gin.Context) {
 		labels := &[]models.Label{}
-		db.Dbm.Select(labels, "select * from Label")
+		Dbm.Select(labels, "select * from Label")
 
 		c.HTML(http.StatusOK, "insert.tmpl", gin.H{
 			"labels": labels,
@@ -182,7 +181,7 @@ func NewEngine() *gin.Engine {
 		}
 
 		u, _ := strconv.ParseUint(labelId, 10, 64)
-		db.Dbm.Insert(&models.Record{0, date, amount, u})
+		Dbm.Insert(&models.Record{0, date, amount, u})
 
 		c.HTML(http.StatusCreated, "insert.tmpl", gin.H{})
 	})
@@ -190,7 +189,7 @@ func NewEngine() *gin.Engine {
 	router.POST("/update/:recordId", func(c *gin.Context) {
 		id := c.Param("recordId")
 
-		obj, err := db.Dbm.Get(models.Record{}, id)
+		obj, err := Dbm.Get(models.Record{}, id)
 		record := obj.(*models.Record)
 
 		t, err := time.Parse(time.RFC3339, c.PostForm("date"))
@@ -205,7 +204,7 @@ func NewEngine() *gin.Engine {
 			record.LabelId = u
 		}
 
-		cnt, err := db.Dbm.Update(record)
+		cnt, err := Dbm.Update(record)
 		if err != nil {
 			panic(err)
 		}
@@ -221,7 +220,7 @@ func recordsByLabelId(labelId uint64, t time.Time) *[]models.Record {
 	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := db.Dbm.Select(records, "select * from Record where LabelId = ? and Time >= ? and Time < ?", labelId, startOfToday, startOfTomorrow)
+	_, err := Dbm.Select(records, "select * from Record where LabelId = ? and Time >= ? and Time < ?", labelId, startOfToday, startOfTomorrow)
 	if err != nil {
 		panic(err)
 	}
@@ -230,9 +229,9 @@ func recordsByLabelId(labelId uint64, t time.Time) *[]models.Record {
 
 func recordsByDate(t time.Time) *[]models.Record {
 	startOfToday := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
-	startOfTomorrow := time.Date(t.Year(), t.Month(), t.Day()+1, 0, 0, 0, 0, t.Location())
+	startOfTomorrow := StartOfNextDay(t)
 	records := &[]models.Record{}
-	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
+	_, err := Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfToday, startOfTomorrow)
 	if err != nil {
 		panic(err)
 	}
@@ -243,7 +242,7 @@ func recordsByMonth(t time.Time) *[]models.Record {
 	startOfMonth := time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, t.Location())
 	startOfNextMonth := time.Date(t.Year(), t.Month()+1, 1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
+	_, err := Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfMonth, startOfNextMonth)
 	if err != nil {
 		panic(err)
 	}
@@ -254,7 +253,7 @@ func recordsByYear(t time.Time) *[]models.Record {
 	startOfYear := time.Date(t.Year(), 1, 1, 0, 0, 0, 0, t.Location())
 	startOfNextYear := time.Date(t.Year()+1, 1, 1, 0, 0, 0, 0, t.Location())
 	records := &[]models.Record{}
-	_, err := db.Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfYear, startOfNextYear)
+	_, err := Dbm.Select(records, "select * from Record where Time >= ? and Time < ?", startOfYear, startOfNextYear)
 	if err != nil {
 		panic(err)
 	}
@@ -297,36 +296,4 @@ func totalAmountByKind(records *map[uint64][]models.Record) *map[uint64]float64 
 		result[k] = totalAmount(&rs)
 	}
 	return &result
-}
-
-func InitDB() {
-	db.Dbm = &gorp.DbMap{Db: db.Db, Dialect: gorp.SqliteDialect{}}
-
-	setColumnSizes := func(t *gorp.TableMap, colSizes map[string]int) {
-		for col, size := range colSizes {
-			t.ColMap(col).MaxSize = size
-		}
-	}
-
-	t := db.Dbm.AddTable(models.Record{}).SetKeys(true, "Id")
-	setColumnSizes(t, map[string]int{
-		"Time":    50,
-		"Amount":  50,
-		"LabelId": 50,
-	})
-	t = db.Dbm.AddTable(models.Label{}).SetKeys(true, "Id")
-	setColumnSizes(t, map[string]int{
-		"Name":       50,
-		"CategoryId": 50,
-	})
-	t = db.Dbm.AddTable(models.Category{}).SetKeys(true, "Id")
-	setColumnSizes(t, map[string]int{
-		"Name": 50,
-	})
-
-	db.Dbm.TraceOn("[gorp]", log.New(os.Stdout, "sql:", log.Lmicroseconds))
-	err := db.Dbm.CreateTablesIfNotExists()
-	if err != nil {
-		panic(fmt.Sprintf("Fail to create tables: %+v", err))
-	}
 }
